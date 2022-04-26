@@ -2,24 +2,30 @@ const Blockchain = require('./blockchain');
 
 const burbcoin = new Blockchain();
 
-console.log("Creating genesis block...");
-burbcoin.createNewBlock(345136, "9f20932909hg0f9f82g2h0h923", "284h284fj920fh028f09jf3");
 
-burbcoin.createNewTransaction("394gh284h8203392i9d", "2ryfhuh297380f8fwe8982", 48578392, "This is data that is sent with the transaction");
-burbcoin.createNewTransaction("394gh284h8203392i9d", "2ryfhuh297380f8fwe8982", 392, "This is data that is sent with the transaction");
-burbcoin.createNewTransaction("394gh284h8203392i9d", "2ryfhuh297380f8fwe8982", 85783, "This is data that is sent with the transaction");
+const prevBlockHash = "294835720239094f3h2v9b8f2fj290f230";
+const currentBlockData = [
+    {
+        value: 10,
+        from: "298t74hf849fh380",
+        to: "2984h274hf892",
+        data: "tx 1"
+    },
+    {
+        value: 10,
+        from: "298t74hf849fh380",
+        to: "2984h274hf892",
+        data: "tx2"
+    },
+    {
+        value: 10,
+        from: "298t74hf849fh380",
+        to: "2984h274hf892",
+        data: "tx3"
+    },
+];
 
-console.log("These are the pending transactions before creating a new block: ");
-console.log(burbcoin.pendingTransactions);
+//const pow = burbcoin.proofOfWork(prevBlockHash, currentBlockData);
 
-
-console.log("Creating new block...");
-burbcoin.createNewBlock(3745463, "9f202947g928h93f0h923", "82hf928f284h284fj920fh028f09jf3");
-
-
-console.log("These are the pending transactions after creating a new block: ");
-console.log(burbcoin.pendingTransactions);
-
-
-console.log("This is the block with the transaction in it: ");
-console.log(burbcoin.chain[1]);
+console.log(burbcoin.hashBlock(prevBlockHash, currentBlockData, 754234));
+//console.log("The nonce is: ", pow);

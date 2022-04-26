@@ -24,4 +24,8 @@ Blockchain.prototype.createNewBlock = function(nonce, prevBlockHash, blockHash) 
     return newBlock;
 };
 
+Blockchain.prototype.getLastBlock = function() {
+    return this.chain[this.chain.length - 1];
+};
+
 module.exports = Blockchain;

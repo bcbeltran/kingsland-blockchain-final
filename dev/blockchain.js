@@ -2,13 +2,16 @@ const sha256 = require('sha256');
 const uuid = require('uuid');
 
 const nodeAddress = uuid.v1().split('-').join('');
+const selfUrl = process.argv[3];
 
 function Blockchain() {
     this.chain = [];
     this.pendingTransactions = [];
     this.difficulty = 5;
-    this.createNewTransaction("00", nodeAddress, 1000000000, "genesis block");
-    this.createNewBlock(0, "0", "0", nodeAddress, "0");
+    this.selfUrl = selfUrl;
+    this.peers = [];
+    this.createNewTransaction("00", selfUrl, 1000000000, "genesis block");
+    this.createNewBlock(0, "0", "0", selfUrl, "0");
 }
 
 Blockchain.prototype.createNewBlock = function(nonce, prevBlockHash, blockHash, minedBy, blockDataHash) {

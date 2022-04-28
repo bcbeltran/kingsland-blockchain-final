@@ -10,7 +10,7 @@ function Blockchain() {
     this.difficulty = 5;
     this.selfUrl = selfUrl;
     this.peers = [];
-    this.createNewTransaction("00", selfUrl, 1000000000, "genesis block");
+    this.maxSupply = 1000000000 ** 8;
     this.createNewBlock(0, "0", "0", selfUrl, "0");
 }
 
@@ -38,9 +38,54 @@ Blockchain.prototype.getLastBlock = function() {
     return this.chain[this.chain.length - 1];
 };
 
+Blockchain.prototype.chainIsValid = function(blockchain) {
+    let validChain = true;
+
+    for (var i = 1; i < blockchain.length; i++) {
+        const currentBlock = blockchain[i];
+        const prevBlock = blockchain[i - 1];
+        // console.log("this is the current block: ", currentBlock);
+        // console.log('this is the prevblock: ', prevBlock);
+        const hashedBlock = this.hashBlock(
+			prevBlock["blockHash"],
+			{
+				index: currentBlock['index'],
+				transactions: currentBlock['transactions'],
+				difficulty: currentBlock['difficulty'],
+				prevBlockHash: prevBlock['blockHash'],
+                selfUrl: currentBlock['minedBy']
+			},
+			currentBlock["nonce"]
+		);
+
+        if(currentBlock['prevBlockHash'] != prevBlock['blockHash']) {
+            validChain = false;
+        }
+        
+        if(hashedBlock.substring(0, 5) != "00000") {
+            validChain = false;
+        }
+        console.log('prev block hash: ', prevBlock['blockHash']);
+        console.log('current block hash: ', currentBlock['blockHash']);
+
+    }
+
+    const genesisBlock = blockchain[0];
+    const genesisNonce = genesisBlock.nonce === 0;
+    const genesisPrevBlockHash = genesisBlock.prevBlockHash === "0";
+    const genesisHash = genesisBlock.blockHash === "0";
+    const genesisTransactions = genesisBlock.transactions.length === 0;
+
+    if(!genesisNonce || !genesisPrevBlockHash || !genesisHash || !genesisTransactions) {
+        validChain = false;
+    }
+
+    return validChain;
+};
+
 Blockchain.prototype.createNewTransaction = function(from, to, value, data) {
     let txFee = 0;
-    if(from !== "00") {
+    if(from !== "coinbase") {
         txFee = 10;
     }
     const newTransaction = {
@@ -50,15 +95,21 @@ Blockchain.prototype.createNewTransaction = function(from, to, value, data) {
         fee: txFee,
         dateCreated: new Date().toISOString(),
         data: data,
+        transactionId: uuid.v1().split('-').join(''),
         // senderPubKey: ,
         // transactionDataHash: ,
         // senderSignature: , 
     };
 
-    this.pendingTransactions.push(newTransaction);
+    return newTransaction;
 
+};
+
+Blockchain.prototype.addTransactionToPending = function(transactionObj) {
+    this.pendingTransactions.push(transactionObj);
+    
     if(this.chain.length === 0){
-        return;
+        return "Genesis block created";
     } else {
 
         return this.getLastBlock()['index'] + 1;

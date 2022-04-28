@@ -5,6 +5,8 @@ const Blockchain = require('./blockchain');
 const uuid = require('uuid');
 const port = process.argv[2];
 const rp = require('request-promise');
+const request = require('request');
+const selfUrl = process.argv[3];
 
 const nodeAddress = uuid.v1().split('-').join('');
 
@@ -18,35 +20,106 @@ app.get('/blockchain', function(req, res) {
 });
 
 app.post('/transaction', function(req, res) {
-    const blockIndex = burbcoin.createNewTransaction(req.body.from, req.body.to, req.body.value, req.body.data);
-    res.json({ message: `Transaction will be added in block ${blockIndex}.` });
+    const newTransaction = req.body;
+    const blockIndex = burbcoin.addTransactionToPending(newTransaction);
+    res.json({ message: `Transaction will be added in block ${blockIndex}`});
 });
 
 app.post('/transaction/broadcast', function(req,res) {
-    
-})
+    const newTransaction = burbcoin.createNewTransaction(req.body.from, req.body.to, req.body.value, req.body.data);
+    burbcoin.addTransactionToPending(newTransaction);
+
+    const requestPromises = [];
+    burbcoin.peers.forEach(node => {
+        const requestOptions = {
+            uri: node + '/transaction',
+            method:'POST',
+            body: newTransaction,
+            json: true
+        };
+
+        requestPromises.push(rp(requestOptions));
+    });
+
+    Promise.all(requestPromises)
+        .then(data => {
+            res.json({ message: "Transaction created and broadcast successfully."});
+        });
+});
 
 app.get('/mine', function(req, res) {
     const lastBlock = burbcoin.getLastBlock();
-    const prevBlockHash = lastBlock['blockHash'];
+    let prevBlockHash = lastBlock["blockHash"];
 
     const currentBlockData = {
-        index: lastBlock['index'] + 1,
-        transactions: burbcoin.pendingTransactions,
-        difficulty: burbcoin.difficulty,
-        prevBlockHash,
-        nodeAddress
-    };
+		index: lastBlock["index"] + 1,
+		transactions: burbcoin.pendingTransactions,
+		difficulty: burbcoin.difficulty,
+		prevBlockHash,
+		selfUrl,
+	};
 
     const nonce = burbcoin.proofOfWork(prevBlockHash, currentBlockData);
     const blockHash = burbcoin.hashBlock(prevBlockHash, currentBlockData, nonce);
     const blockDataHash = burbcoin.hashBlockData(currentBlockData);
 
-    burbcoin.createNewTransaction("00", nodeAddress, 100);
-    const newBlock = burbcoin.createNewBlock(nonce, prevBlockHash, blockHash, nodeAddress, blockDataHash);
+    const newBlock = burbcoin.createNewBlock(nonce, prevBlockHash, blockHash, selfUrl, blockDataHash);
+    
+    const requestPromises = [];
+    burbcoin.peers.forEach(node => {
+        const requestOptions = {
+            uri: node + '/receive-new-block',
+            method: 'POST',
+            body: { newBlock: newBlock },
+            json: true
+        };
+        
+        requestPromises.push(rp(requestOptions));
+    });
+    
+    Promise.all(requestPromises)
+        .then(data => {
+            const requestOptions = {
+                uri: burbcoin.selfUrl + '/transaction/broadcast',
+                method: 'POST',
+                body: {
+                    from: "coinbase",
+                    to: burbcoin.selfUrl,
+                    value: 100,
+                    data: "Mining reward"
+                },
+                json: true
+            };
 
+            return rp(requestOptions);
+        })
+        .then(data => {
 
-    res.json({ message: "New block mined successfully.", block: newBlock});
+            res.json({ message: "New block mined and broadcast successfully.", block: newBlock});
+        })
+        .catch(err => {
+            console.log("Error: ", err);
+        });
+
+});
+
+app.post('/receive-new-block', function(req,res) {
+    const newBlock = req.body.newBlock;
+    const lastBlock = burbcoin.getLastBlock();
+
+    if (
+		lastBlock["blockHash"] == newBlock.prevBlockHash &&
+		lastBlock["index"] + 1 == newBlock.index
+	) {
+		burbcoin.chain.push(newBlock);
+		burbcoin.pendingTransactions = [];
+		res.json({
+			message: "New block received and accepted.",
+			newBlock: newBlock,
+		});
+	} else {
+		res.json({ message: "New block rejected.", newBlock: newBlock });
+	}
 });
 
 app.post('/register-broadcast-node', function(req, res) {

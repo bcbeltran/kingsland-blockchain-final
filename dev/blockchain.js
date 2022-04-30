@@ -1,41 +1,22 @@
 const sha256 = require('sha256');
-const uuid = require('uuid');
+const uuid = require("uuid");
 
-const nodeAddress = uuid.v1().split('-').join('');
-const selfUrl = process.argv[3];
-
-function Node() {
-    this.about = "KingslandFinalProject/v1";
-    this.nodeId = nodeAddress;
-    this.selfUrl = selfUrl;
-    this.peers = [];
-}
-
-function Blockchain() {
+// BLOCKCHAIN IMPLEMENTATION
+function Blockchain(nodeAddress) {
     this.chain = [];
     this.pendingTransactions = [];
     this.difficulty = 5;
     this.maxSupply = 1000000000 ** 8;
     this.createNewBlock(0, "0", "0", nodeAddress, "0");
+    this.addTransactionToPending({
+		from: "coinbase",
+		to: nodeAddress,
+		value: 100,
+		data: "Genesis block",
+		dateCreated: new Date().toISOString(),
+		transactionId: uuid.v1().split("-").join("")
+	});
 }
-
-Node.prototype.getNodeInfo = function(blockchain, blockCount) {
-    
-    const currentNode = {
-        about: this.about,
-        nodeId: this.nodeId,
-        selfUrl: this.selfUrl,
-        chain: blockchain,
-        peers: this.peers,
-        blocksCount: blockCount,
-        //confirmedTransactions: 
-        
-    };
-
-    return currentNode;
-
-
-};
 
 Blockchain.prototype.createNewBlock = function(nonce, prevBlockHash, blockHash, minedBy, blockDataHash) {
     const newBlock = {
@@ -52,10 +33,6 @@ Blockchain.prototype.createNewBlock = function(nonce, prevBlockHash, blockHash, 
     };
     
     this.pendingTransactions = [];
-    if(this.chain.length == 0) {
-        const genesisBlock = this.createNewTransaction("coinbase", nodeAddress, 100, "Genesis block");
-        this.addTransactionToPending(genesisBlock);
-    }
     
     this.chain.push(newBlock);
     
@@ -87,12 +64,12 @@ Blockchain.prototype.chainIsValid = function(blockchain) {
 		);
 
         if(currentBlock['prevBlockHash'] != prevBlock['blockHash']) {
-            console.log('failed at hash')
+            console.log('failed at hash');
             validChain = false;
         }
         
         if(hashedBlock.substring(0, 5) != "00000") {
-            console.log('failed at substring')
+            console.log('failed at substring');
             validChain = false;
         }
     }
@@ -104,7 +81,7 @@ Blockchain.prototype.chainIsValid = function(blockchain) {
     const genesisTransactions = genesisBlock.transactions.length === 0;
 
     if(!genesisNonce || !genesisPrevBlockHash || !genesisHash || !genesisTransactions) {
-        console.log('failed at genesis block')
+        console.log('failed at genesis block');
         validChain = false;
     }
 
@@ -128,7 +105,6 @@ Blockchain.prototype.createNewTransaction = function(from, to, value, data) {
         // transactionDataHash: ,
         // senderSignature: , 
     };
-
     return newTransaction;
 
 };
@@ -160,8 +136,27 @@ Blockchain.prototype.hashBlock = function(prevBlockHash, currentBlockData, nonce
 
 Blockchain.prototype.proofOfWork = function(prevBlockHash, currentBlockData) {
     let nonce = 0;
+    let leadingZero = '0';
+
+    if(this.chain.length > 1) {
+        let lastBlock = this.getLastBlock();
+        let timestampComparison = this.chain[lastBlock.index - 2].timestamp;
+        let difficultyAdjustment = lastBlock.timestamp - timestampComparison;
+    
+        if(difficultyAdjustment >= 30000) {
+            this.difficulty--;
+        } else if (difficultyAdjustment <= 5000) {
+            this.difficulty++;
+        }
+
+        console.log("last block timestamp: ", lastBlock.timestamp);
+        console.log('block before last block timestamp: ', timestampComparison);
+        console.log('difficulty adjustment: ', difficultyAdjustment);
+        console.log('current difficulty: ', this.difficulty);
+    }
+
     let hash = this.hashBlock(prevBlockHash, currentBlockData, nonce);
-    while(hash.substring(0, this.difficulty) !== '00000') {
+    while(hash.substring(0, this.difficulty) !== leadingZero.repeat(this.difficulty)) {
         nonce++;
         hash = this.hashBlock(prevBlockHash, currentBlockData, nonce);
     }
@@ -219,4 +214,4 @@ Blockchain.prototype.getAddressInfo = function(address) {
     };
 };
 
-module.exports = {Blockchain, Node};
+module.exports = Blockchain;

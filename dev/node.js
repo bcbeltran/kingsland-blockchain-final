@@ -1,16 +1,14 @@
 const express = require('express');
 const app = express();
 const bodyParser = require('body-parser');
-const {Blockchain, Node} = require('./blockchain');
-const uuid = require('uuid');
+const Blockchain = require('./blockchain');
+const Node = require('./createNode');
 const port = process.argv[2];
 const rp = require('request-promise');
-const request = require('request');
-const selfUrl = process.argv[3];
 
 
 const currentNode = new Node();
-const burbcoin = new Blockchain();
+const burbcoin = new Blockchain(currentNode.nodeId);
 const nodeAddress = currentNode.nodeId;
 
 app.use(bodyParser.json());
@@ -122,7 +120,7 @@ app.get('/mine', function(req, res) {
     Promise.all(requestPromises)
         .then(data => {
             const requestOptions = {
-                uri: currentNode.selfUrl + '/transaction/broadcast',
+                uri: currentNode.nodeUrl + '/transaction/broadcast',
                 method: 'POST',
                 body: {
                     from: "coinbase",
@@ -188,7 +186,7 @@ app.post('/register-broadcast-node', function(req, res) {
             const existingRegisterOptions = {
                 uri: newNodeUrl + '/register-existing-nodes',
                 method: 'POST',
-                body: { allNetworkNodes: [...currentNode.peers, currentNode.selfUrl]},
+                body: { allNetworkNodes: [...currentNode.peers, currentNode.nodeUrl]},
                 json: true
             };
             return rp(existingRegisterOptions);
@@ -200,7 +198,7 @@ app.post('/register-broadcast-node', function(req, res) {
 
 app.post('/register-node', function(req, res) {
     const newNodeUrl = req.body.newNodeUrl;
-    if(currentNode.peers.indexOf(newNodeUrl) == -1 && currentNode.selfUrl != newNodeUrl) {
+    if(currentNode.peers.indexOf(newNodeUrl) == -1 && currentNode.nodeUrl != newNodeUrl) {
         currentNode.peers.push(newNodeUrl);
     }
     res.json({ message: "New node registered successfully."});
@@ -209,7 +207,7 @@ app.post('/register-node', function(req, res) {
 app.post('/register-existing-nodes', function(req, res) {
     const allNetworkNodes = req.body.allNetworkNodes;
     allNetworkNodes.forEach(node => {
-        if (currentNode.peers.indexOf(node) == -1 && currentNode.selfUrl != node) {
+        if (currentNode.peers.indexOf(node) == -1 && currentNode.nodeUrl != node) {
             currentNode.peers.push(node);
         }
     });

@@ -104,7 +104,7 @@ const bc1 =
 }
 ],
 "difficulty": 5,
-"selfUrl": "http://localhost:3001",
+"nodeUrl": "http://localhost:3001",
 "peers": [],
 "maxSupply": 1e+72
 }

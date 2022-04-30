@@ -4,15 +4,38 @@ const uuid = require('uuid');
 const nodeAddress = uuid.v1().split('-').join('');
 const selfUrl = process.argv[3];
 
+function Node() {
+    this.about = "KingslandFinalProject/v1";
+    this.nodeId = nodeAddress;
+    this.selfUrl = selfUrl;
+    this.peers = [];
+}
+
 function Blockchain() {
     this.chain = [];
     this.pendingTransactions = [];
     this.difficulty = 5;
-    this.selfUrl = selfUrl;
-    this.peers = [];
     this.maxSupply = 1000000000 ** 8;
-    this.createNewBlock(0, "0", "0", selfUrl, "0");
+    this.createNewBlock(0, "0", "0", nodeAddress, "0");
 }
+
+Node.prototype.getNodeInfo = function(blockchain, blockCount) {
+    
+    const currentNode = {
+        about: this.about,
+        nodeId: this.nodeId,
+        selfUrl: this.selfUrl,
+        chain: blockchain,
+        peers: this.peers,
+        blocksCount: blockCount,
+        //confirmedTransactions: 
+        
+    };
+
+    return currentNode;
+
+
+};
 
 Blockchain.prototype.createNewBlock = function(nonce, prevBlockHash, blockHash, minedBy, blockDataHash) {
     const newBlock = {
@@ -27,10 +50,15 @@ Blockchain.prototype.createNewBlock = function(nonce, prevBlockHash, blockHash, 
         timestamp: Date.now(),
         blockHash: blockHash
     };
-
+    
     this.pendingTransactions = [];
+    if(this.chain.length == 0) {
+        const genesisBlock = this.createNewTransaction("coinbase", nodeAddress, 100, "Genesis block");
+        this.addTransactionToPending(genesisBlock);
+    }
+    
     this.chain.push(newBlock);
-
+    
     return newBlock;
 };
 
@@ -53,21 +81,20 @@ Blockchain.prototype.chainIsValid = function(blockchain) {
 				transactions: currentBlock['transactions'],
 				difficulty: currentBlock['difficulty'],
 				prevBlockHash: prevBlock['blockHash'],
-                selfUrl: currentBlock['minedBy']
+                nodeAddress: currentBlock['minedBy']
 			},
 			currentBlock["nonce"]
 		);
 
         if(currentBlock['prevBlockHash'] != prevBlock['blockHash']) {
+            console.log('failed at hash')
             validChain = false;
         }
         
         if(hashedBlock.substring(0, 5) != "00000") {
+            console.log('failed at substring')
             validChain = false;
         }
-        console.log('prev block hash: ', prevBlock['blockHash']);
-        console.log('current block hash: ', currentBlock['blockHash']);
-
     }
 
     const genesisBlock = blockchain[0];
@@ -77,6 +104,7 @@ Blockchain.prototype.chainIsValid = function(blockchain) {
     const genesisTransactions = genesisBlock.transactions.length === 0;
 
     if(!genesisNonce || !genesisPrevBlockHash || !genesisHash || !genesisTransactions) {
+        console.log('failed at genesis block')
         validChain = false;
     }
 
@@ -141,4 +169,54 @@ Blockchain.prototype.proofOfWork = function(prevBlockHash, currentBlockData) {
     return nonce;
 };
 
-module.exports = Blockchain;
+Blockchain.prototype.getBlock = function(blockHash) {
+    let correctBlock = null;
+    this.chain.forEach(block => {
+        if (block.blockHash === blockHash) {
+            correctBlock = block;
+        }
+    });
+    return correctBlock;
+
+};
+
+Blockchain.prototype.getTransaction = function(transactionId) {
+    let correctTransaction = null;
+    let correctBlock = null;
+    this.chain.forEach(block => {
+        block.transactions.forEach(transaction => {
+            if(transaction.transactionId == transactionId) {
+                correctTransaction = transaction;
+                correctBlock = block;
+            }
+        });
+    });
+    return { transaction: correctTransaction, block: correctBlock };
+};
+
+Blockchain.prototype.getAddressInfo = function(address) {
+    const addressTransactions = [];
+    this.chain.forEach(block => {
+        block.transactions.forEach(transaction => {
+            if(transaction.from == address || transaction.to == address) {
+                addressTransactions.push(transaction);
+            }
+        });
+    });
+
+    let balance = 0;
+    addressTransactions.forEach(transaction => {
+        if(transaction.to == address) {
+            balance += transaction.value;
+        } else if (transaction.from == address) {
+            balance -= transaction.value;
+        }
+    });
+
+    return {
+        addressTransactions: addressTransactions,
+        addressBalance: balance
+    };
+};
+
+module.exports = {Blockchain, Node};

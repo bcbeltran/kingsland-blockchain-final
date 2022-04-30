@@ -22,6 +22,11 @@ app.get('/node-info', function(req, res) {
     res.send(currentNode.getNodeInfo(burbcoin, burbcoin.chain.length));
 });
 
+app.get('/reset-chain', function(req, res) {
+    burbcoin.resetChain();
+    res.json({ message: "Chain was reset to it's genesis block.", chain: burbcoin.chain });
+})
+
 app.get('/consensus', function(req, res) {
     const requestPromises = [];
     currentNode.peers.forEach(node => {

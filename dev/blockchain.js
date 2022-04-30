@@ -7,7 +7,21 @@ function Blockchain(nodeAddress) {
     this.pendingTransactions = [];
     this.difficulty = 5;
     this.maxSupply = 1000000000 ** 8;
-    this.createNewBlock(0, "0", "0", nodeAddress, "0");
+    this.createNewBlock(
+		0,
+		"0",
+		this.hashBlock(
+		"0",
+		{
+			index: 1,
+			transactions: [],
+			difficulty: this.difficulty,
+			prevBlockHash: '0',
+			nodeAddress: nodeAddress,
+            maxSupply: this.maxSupply
+		}, 0),
+		nodeAddress
+	);
     this.addTransactionToPending({
 		from: "coinbase",
 		to: nodeAddress,
@@ -16,6 +30,15 @@ function Blockchain(nodeAddress) {
 		dateCreated: new Date().toISOString(),
 		transactionId: uuid.v1().split("-").join("")
 	});
+}
+
+Blockchain.prototype.resetChain = function() {
+    let genesisBlock = this.chain[0];
+    this.pendingTransactions = [this.chain[1].transactions[0]];
+    this.chain = [];
+    this.chain.push(genesisBlock);
+    this.difficulty = 5;
+	this.maxSupply = 1000000000 ** 8;
 }
 
 Blockchain.prototype.createNewBlock = function(nonce, prevBlockHash, blockHash, minedBy, blockDataHash) {

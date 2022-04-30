@@ -13,9 +13,11 @@ function Node() {
 
 Node.prototype.getNodeInfo = function(blockchain, blockCount) {
     let confirmedTransactions = 0;
+    let cumulativeDifficulty = 0;
     let pendingTransactions = blockchain.pendingTransactions.length;
     blockchain.chain.forEach(block => {
         confirmedTransactions += block.transactions.length;
+        cumulativeDifficulty += block.difficulty;
     });
 
     const currentNode = {
@@ -25,6 +27,7 @@ Node.prototype.getNodeInfo = function(blockchain, blockCount) {
         chain: blockchain.chain,
         peers: this.peers,
         blocksCount: blockCount,
+        cumulativeDifficulty: cumulativeDifficulty,
         confirmedTransactions: confirmedTransactions,
         pendingTransactions: pendingTransactions
         

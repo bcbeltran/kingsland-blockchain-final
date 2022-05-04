@@ -6,26 +6,31 @@ function Blockchain(nodeAddress) {
     this.chain = [];
     this.pendingTransactions = [];
     this.difficulty = 5;
-    this.maxSupply = 1000000000 ** 8;
     this.createNewBlock(
 		0,
 		"0",
 		this.hashBlock(
-		"0",
-		{
-			index: 1,
+			"0",
+			{
+				index: 0,
+				transactions: [],
+				difficulty: this.difficulty,
+				nodeAddress: "0000000000000000000000000000000000000000",
+			},
+			0
+		),
+		"0000000000000000000000000000000000000000",
+		this.hashBlockData({
+			index: 0,
 			transactions: [],
 			difficulty: this.difficulty,
-			prevBlockHash: '0',
-			nodeAddress: nodeAddress,
-            maxSupply: this.maxSupply
-		}, 0),
-		nodeAddress
+			nodeAddress: "0000000000000000000000000000000000000000",
+		})
 	);
     this.addTransactionToPending({
-		from: "coinbase",
+		from: "0000000000000000000000000000000000000000",
 		to: nodeAddress,
-		value: 100,
+		value: 1000000000000,
 		data: "Genesis block",
 		dateCreated: new Date().toISOString(),
 		transactionId: uuid.v1().split("-").join("")
@@ -38,12 +43,15 @@ Blockchain.prototype.resetChain = function() {
     this.chain = [];
     this.chain.push(genesisBlock);
     this.difficulty = 5;
-	this.maxSupply = 1000000000 ** 8;
 }
 
 Blockchain.prototype.createNewBlock = function(nonce, prevBlockHash, blockHash, minedBy, blockDataHash) {
+    let index = 0;
+    if(this.chain.length !== 0) {
+        index = this.chain.length + 1;
+    }
     const newBlock = {
-        index: this.chain.length + 1,
+        index: index,
         transactions: this.pendingTransactions,
         difficulty: this.difficulty,
         prevBlockHash: prevBlockHash,
@@ -116,14 +124,16 @@ Blockchain.prototype.createNewTransaction = function(from, to, value, data) {
     if(from !== "coinbase") {
         txFee = 10;
     }
+    const dateCreated = new Date().toISOString();
+    const txHash = this.hashBlockData(from, to, value, txFee, dateCreated, data)
     const newTransaction = {
         from: from,
         to: to,
         value: value,
         fee: txFee,
-        dateCreated: new Date().toISOString(),
+        dateCreated: dateCreated,
         data: data,
-        transactionId: uuid.v1().split('-').join(''),
+        transactionHash: txHash,
         // senderPubKey: ,
         // transactionDataHash: ,
         // senderSignature: , 

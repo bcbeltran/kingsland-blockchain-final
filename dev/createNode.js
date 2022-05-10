@@ -23,6 +23,7 @@ Node.prototype.getNodeInfo = function(blockchain, blockCount) {
     const currentNode = {
         about: this.about,
         nodeId: this.nodeId,
+        chainId: blockchain.chain[0].blockHash,
         nodeUrl: this.nodeUrl,
         chain: blockchain.chain,
         peers: this.peers,

@@ -6,7 +6,6 @@ const Node = require('./createNode');
 const port = process.argv[2];
 const rp = require('request-promise');
 
-
 const currentNode = new Node();
 const burbcoin = new Blockchain(currentNode.nodeId);
 const nodeAddress = currentNode.nodeId;
@@ -14,7 +13,11 @@ const nodeAddress = currentNode.nodeId;
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
-app.get('/blockchain', function(req, res) {
+app.get('/', function(req, res) {
+    res.sendFile("./blockchainLegend.html", { root: __dirname });
+});
+
+app.get('/blocks', function(req, res) {
     res.send(burbcoin);
 });
 
@@ -25,7 +28,7 @@ app.get('/node-info', function(req, res) {
 app.get('/reset-chain', function(req, res) {
     burbcoin.resetChain();
     res.json({ message: "Chain was reset to it's genesis block.", chain: burbcoin.chain });
-})
+});
 
 app.get('/consensus', function(req, res) {
     const requestPromises = [];
@@ -62,9 +65,10 @@ app.get('/consensus', function(req, res) {
                 res.json({ message: "Chain repalced with new longer chain.", chain: burbcoin.chain });
             }
         });
-});
+    });
 
-app.post('/transaction', function(req, res) {
+    
+    app.post('/transaction', function(req, res) {
     const newTransaction = req.body;
     const blockIndex = burbcoin.addTransactionToPending(newTransaction);
     res.json({ message: `Transaction will be added in block ${blockIndex}`});
@@ -88,7 +92,7 @@ app.post('/transaction/broadcast', function(req,res) {
 
     Promise.all(requestPromises)
         .then(data => {
-            res.json({ message: "Transaction created and broadcast successfully."});
+            res.json({ message: "Transaction created and broadcast successfully.", txDataHash: newTransaction.transactionDataHash});
         });
 });
 
@@ -128,7 +132,7 @@ app.get('/mine', function(req, res) {
                 uri: currentNode.nodeUrl + '/transaction/broadcast',
                 method: 'POST',
                 body: {
-                    from: "coinbase",
+                    from: "1234567890",
                     to: currentNode.nodeId,
                     value: 100,
                     data: "Mining reward"
@@ -221,7 +225,28 @@ app.post('/register-existing-nodes', function(req, res) {
 
 // BLOCK EXPLORER
 
-app.get('/block/:blockHash', function(req, res) {
+app.get('/transactions/pending', function(req, res) {
+    res.json({ pendingTransactions: burbcoin.pendingTransactions });
+});
+
+app.get('/transactions/:transactionDataHash', function(req, res) {
+    const txDataHash = req.params.transactionDataHash;
+    const transaction = burbcoin.getTransactionByDataHash(txDataHash);
+    res.json({ transaction: transaction });
+});
+
+app.get('/transactions/confirmed', function(req, res) {
+    const confirmed = burbcoin.getConfirmedTransactions();
+    res.json({ confirmedTransactions: confirmed });
+});
+
+app.get('/blocks/:blockIndex', function(req, res) {
+    const blockIndex = req.params.blockIndex;
+    const currentBlock = burbcoin.getBlockByIndex(blockIndex);
+    res.json({ block: currentBlock});
+});
+
+app.get('/blocks/:blockHash', function(req, res) {
     const blockHash = req.params.blockHash;
     const currentBlock = burbcoin.getBlock(blockHash);
     res.json({
@@ -229,7 +254,7 @@ app.get('/block/:blockHash', function(req, res) {
     });
 });
 
-app.get('/transaction/:transactionId', function(req, res) {
+app.get('/transactions/:transactionId', function(req, res) {
     const transactionId = req.params.transactionId;
     const currentTransaction = burbcoin.getTransaction(transactionId);
     res.json({
@@ -238,16 +263,16 @@ app.get('/transaction/:transactionId', function(req, res) {
     });
 });
 
-app.get('/address/:address', function(req, res) {
+app.get('/address/:address/transactions', function(req, res) {
     const address = req.params.address;
     const currentInfo = burbcoin.getAddressInfo(address);
-    res.json({
-        addressInfo: currentInfo
-    });
+    res.json(currentInfo);
 });
 
-app.get('/block-explorer', function(req, res) {
-    res.sendFile('./block-explorer/index.html', { root: __dirname });
+app.get('/address/:address/balance', function(req, res) {
+    const address = req.params.address;
+    const addressBalance = burbcoin.getAddressBalance(address);
+    res.json(addressBalance);
 });
 
 app.listen(port, function() {

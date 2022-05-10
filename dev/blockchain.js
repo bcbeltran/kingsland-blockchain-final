@@ -29,11 +29,19 @@ function Blockchain(nodeAddress) {
 	);
     this.addTransactionToPending({
 		from: "0000000000000000000000000000000000000000",
-		to: nodeAddress,
+		to: "1234567890",
 		value: 1000000000000,
 		data: "Genesis block",
 		dateCreated: new Date().toISOString(),
-		transactionId: uuid.v1().split("-").join("")
+		transactionId: uuid.v1().split("-").join(""),
+		transactionDataHash: this.hashBlockData(
+			"0000000000000000000000000000000000000000",
+			"1234567890",
+			1000000000000,
+			0,
+			new Date().toISOString(),
+			"Genesis block"
+		),
 	});
 }
 
@@ -47,9 +55,12 @@ Blockchain.prototype.resetChain = function() {
 
 Blockchain.prototype.createNewBlock = function(nonce, prevBlockHash, blockHash, minedBy, blockDataHash) {
     let index = 0;
-    if(this.chain.length !== 0) {
-        index = this.chain.length + 1;
+    if(this.chain.length === 0) {
+        index = 0;
+    } else {       
+        index = this.chain.length;
     }
+
     const newBlock = {
         index: index,
         transactions: this.pendingTransactions,
@@ -62,6 +73,11 @@ Blockchain.prototype.createNewBlock = function(nonce, prevBlockHash, blockHash, 
         timestamp: Date.now(),
         blockHash: blockHash
     };
+
+    this.pendingTransactions.forEach(transaction => {
+        transaction.minedInBlockIndex = this.chain.length;
+        transaction.transferSuccessful = true;
+    });
     
     this.pendingTransactions = [];
     
@@ -70,9 +86,6 @@ Blockchain.prototype.createNewBlock = function(nonce, prevBlockHash, blockHash, 
     return newBlock;
 };
 
-Blockchain.prototype.getLastBlock = function() {
-    return this.chain[this.chain.length - 1];
-};
 
 Blockchain.prototype.chainIsValid = function(blockchain) {
     let validChain = true;
@@ -121,11 +134,12 @@ Blockchain.prototype.chainIsValid = function(blockchain) {
 
 Blockchain.prototype.createNewTransaction = function(from, to, value, data) {
     let txFee = 0;
-    if(from !== "coinbase") {
-        txFee = 10;
-    }
+
+    if (from !== "1234567890") {
+		txFee = 10;
+	}
     const dateCreated = new Date().toISOString();
-    const txHash = this.hashBlockData(from, to, value, txFee, dateCreated, data)
+    const txHash = this.hashBlockData(from, to, value, txFee, dateCreated, data);
     const newTransaction = {
         from: from,
         to: to,
@@ -133,9 +147,8 @@ Blockchain.prototype.createNewTransaction = function(from, to, value, data) {
         fee: txFee,
         dateCreated: dateCreated,
         data: data,
-        transactionHash: txHash,
+        transactionDataHash: txHash,
         // senderPubKey: ,
-        // transactionDataHash: ,
         // senderSignature: , 
     };
     return newTransaction;
@@ -173,7 +186,7 @@ Blockchain.prototype.proofOfWork = function(prevBlockHash, currentBlockData) {
 
     if(this.chain.length > 1) {
         let lastBlock = this.getLastBlock();
-        let timestampComparison = this.chain[lastBlock.index - 2].timestamp;
+        let timestampComparison = this.chain[lastBlock.index - 1].timestamp;
         let difficultyAdjustment = lastBlock.timestamp - timestampComparison;
     
         if(difficultyAdjustment >= 30000) {
@@ -193,14 +206,31 @@ Blockchain.prototype.proofOfWork = function(prevBlockHash, currentBlockData) {
         nonce++;
         hash = this.hashBlock(prevBlockHash, currentBlockData, nonce);
     }
-
+    
     return nonce;
+};
+
+//BLOCK EXPLORER INFO
+
+Blockchain.prototype.getLastBlock = function() {
+    return this.chain[this.chain.length - 1];
 };
 
 Blockchain.prototype.getBlock = function(blockHash) {
     let correctBlock = null;
     this.chain.forEach(block => {
         if (block.blockHash === blockHash) {
+            correctBlock = block;
+        }
+    });
+    return correctBlock;
+    
+};
+
+Blockchain.prototype.getBlockByIndex = function(blockIndex) {
+    let correctBlock = null;
+    this.chain.forEach(block => {
+        if (block.index == blockIndex) {
             correctBlock = block;
         }
     });
@@ -222,6 +252,32 @@ Blockchain.prototype.getTransaction = function(transactionId) {
     return { transaction: correctTransaction, block: correctBlock };
 };
 
+Blockchain.prototype.getTransactionByDataHash = function(transactionDataHash) {
+    let correctTransaction = null;
+    this.chain.forEach(block => {
+        block.transactions.forEach(transaction => {
+            if(transaction.transactionDataHash == transactionDataHash) {
+                correctTransaction = transaction;
+            }
+        });
+    });
+    return { transaction: correctTransaction };
+};
+
+
+Blockchain.prototype.getConfirmedTransactions = function() {
+    let confirmedTransactions = [];
+    this.chain.forEach(block => {
+        block.transactions.forEach(transaction => {
+            if (transaction.transferSuccessful) {
+                confirmedTransactions.push(transaction);
+            }
+        });
+    });
+
+    return confirmedTransactions;
+};
+
 Blockchain.prototype.getAddressInfo = function(address) {
     const addressTransactions = [];
     this.chain.forEach(block => {
@@ -232,19 +288,56 @@ Blockchain.prototype.getAddressInfo = function(address) {
         });
     });
 
-    let balance = 0;
+    return {
+        address: address,
+        transactions: addressTransactions
+    };
+};
+
+Blockchain.prototype.getAddressBalance = function(address) {
+    let safeBalance = 0;
+    let confirmedBalance = 0;
+    let pendingBalance = 0;
+    let addressTransactions = [];
+
+    this.chain.forEach(block => {
+        block.transactions.forEach(transaction => {
+            if(transaction.from === address || transaction.to === address) {
+                addressTransactions.push(transaction);
+            }
+        });
+    });
+    
+    let lastBlockIndex = this.getLastBlock().index;
+
     addressTransactions.forEach(transaction => {
-        if(transaction.to == address) {
-            balance += transaction.value;
-        } else if (transaction.from == address) {
-            balance -= transaction.value;
+        if ((lastBlockIndex - transaction.minedInBlockIndex) >= 6) {
+            if (transaction.to === address) {
+                safeBalance += transaction.value;
+            } else if (transaction.from === address) {
+                safeBalance -= transaction.value;
+            }
+        } else if ((lastBlockIndex - transaction.minedInBlockIndex) >= 1 && (lastBlockIndex - transaction.minedInBlockIndex) < 6) {
+            if (transaction.to === address) {
+				confirmedBalance += transaction.value;
+			} else if (transaction.from === address) {
+				confirmedBalance -= transaction.value;
+			}
+        } else {
+            if (transaction.to === address) {
+				pendingBalance += transaction.value;
+			} else if (transaction.from === address) {
+				pendingBalance -= transaction.value;
+			}
         }
     });
 
     return {
-        addressTransactions: addressTransactions,
-        addressBalance: balance
-    };
+        address: address,
+        safeBalance,
+        confirmedBalance,
+        pendingBalance
+    }
 };
 
 module.exports = Blockchain;

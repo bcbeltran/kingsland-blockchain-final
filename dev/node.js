@@ -42,7 +42,7 @@ app.get('/consensus', function(req, res) {
     const requestPromises = [];
     currentNode.peers.forEach(node => {
         const requestOptions = {
-            uri: node + '/blockchain',
+            uri: node + '/blocks',
             method: 'GET',
             json: true
         };
@@ -186,8 +186,8 @@ app.post('/receive-new-block', function(req,res) {
     const lastBlock = burbcoin.getLastBlock();
 
     if (
-		lastBlock["blockHash"] == newBlock.prevBlockHash &&
-		lastBlock["index"] + 1 == newBlock.index
+		lastBlock["blockHash"] === newBlock.prevBlockHash &&
+		lastBlock["index"] + 1 === newBlock.index
 	) {
 		burbcoin.chain.push(newBlock);
 		burbcoin.pendingTransactions = [];

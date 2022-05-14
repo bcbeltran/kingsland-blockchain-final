@@ -62,15 +62,9 @@ Blockchain.prototype.resetChain = function() {
 }
 
 Blockchain.prototype.createNewBlock = function(nonce, prevBlockHash, blockHash, minedBy, blockDataHash) {
-    let index = 0;
-    if(this.chain.length === 0) {
-        index = 0;
-    } else {       
-        index = this.chain.length;
-    }
 
     const newBlock = {
-        index: index,
+        index: this.chain.length,
         transactions: this.pendingTransactions,
         difficulty: this.difficulty,
         prevBlockHash: prevBlockHash,
@@ -97,6 +91,7 @@ Blockchain.prototype.createNewBlock = function(nonce, prevBlockHash, blockHash, 
 
 Blockchain.prototype.chainIsValid = function(blockchain) {
     let validChain = true;
+    let leadingZero = '0';
 
     for (var i = 1; i < blockchain.length; i++) {
         const currentBlock = blockchain[i];
@@ -108,8 +103,8 @@ Blockchain.prototype.chainIsValid = function(blockchain) {
 			{
 				index: currentBlock['index'],
 				transactions: currentBlock['transactions'],
-				difficulty: currentBlock['difficulty'],
 				prevBlockHash: prevBlock['blockHash'],
+				difficulty: currentBlock['difficulty'],
                 nodeAddress: currentBlock['minedBy']
 			},
 			currentBlock["nonce"]
@@ -120,8 +115,12 @@ Blockchain.prototype.chainIsValid = function(blockchain) {
             validChain = false;
         }
         
-        if(hashedBlock.substring(0, 5) != "00000") {
-            console.log('failed at substring');
+        if (prevBlock.minedBy === "0000000000000000000000000000000000000000") {
+        } else if (
+            hashedBlock.substring(0, currentBlock.difficulty) !==
+            leadingZero.repeat(currentBlock.difficulty)
+        ) {
+            console.log("failed at substring");
             validChain = false;
         }
     }
@@ -129,7 +128,7 @@ Blockchain.prototype.chainIsValid = function(blockchain) {
     const genesisBlock = blockchain[0];
     const genesisNonce = genesisBlock.nonce === 0;
     const genesisPrevBlockHash = genesisBlock.prevBlockHash === "0";
-    const genesisHash = genesisBlock.blockHash === "0";
+    const genesisHash = genesisBlock.blockHash === blockchain[0].blockHash;
     const genesisTransactions = genesisBlock.transactions.length === 0;
 
     if(!genesisNonce || !genesisPrevBlockHash || !genesisHash || !genesisTransactions) {

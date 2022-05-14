@@ -5,6 +5,13 @@ const Blockchain = require('./blockchain');
 const Node = require('./createNode');
 const port = process.argv[2];
 const rp = require('request-promise');
+const uuid = require("uuid");
+const cors = require("cors");
+const corsOptions = {
+	origin: "*",
+	credentials: true, 
+	optionSuccessStatus: 200,
+};
 
 const currentNode = new Node();
 const burbcoin = new Blockchain(currentNode.nodeId);
@@ -12,6 +19,7 @@ const nodeAddress = currentNode.nodeId;
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
+app.use(cors(corsOptions));
 
 app.get('/', function(req, res) {
     res.sendFile("./blockchainLegend.html", { root: __dirname });
@@ -68,14 +76,16 @@ app.get('/consensus', function(req, res) {
     });
 
     
-    app.post('/transaction', function(req, res) {
+app.post('/transaction', function(req, res) {
     const newTransaction = req.body;
     const blockIndex = burbcoin.addTransactionToPending(newTransaction);
     res.json({ message: `Transaction will be added in block ${blockIndex}`});
 });
 
 app.post('/transaction/broadcast', function(req,res) {
-    const newTransaction = burbcoin.createNewTransaction(req.body.from, req.body.to, req.body.value, req.body.data);
+
+    const newTransaction = burbcoin.createNewTransaction(req.body.from, req.body.to, req.body.value, req.body.fee, req.body.dateCreated, req.body.data, req.body.transactionDataHash, req.body.senderPubKey, req.body.senderSignature);
+    
     burbcoin.addTransactionToPending(newTransaction);
 
     const requestPromises = [];
@@ -92,8 +102,9 @@ app.post('/transaction/broadcast', function(req,res) {
 
     Promise.all(requestPromises)
         .then(data => {
-            res.json({ message: "Transaction created and broadcast successfully.", txDataHash: newTransaction.transactionDataHash});
+            res.json({ message: "Transaction created and broadcast successfully!", txDataHash: newTransaction.transactionDataHash});
         });
+
 });
 
 app.get('/mine', function(req, res) {
@@ -129,16 +140,34 @@ app.get('/mine', function(req, res) {
     Promise.all(requestPromises)
         .then(data => {
             const requestOptions = {
-                uri: currentNode.nodeUrl + '/transaction/broadcast',
-                method: 'POST',
-                body: {
-                    from: "1234567890",
-                    to: currentNode.nodeId,
-                    value: 100,
-                    data: "Mining reward"
-                },
-                json: true
-            };
+				uri: currentNode.nodeUrl + "/transaction/broadcast",
+				method: "POST",
+				body: {
+					transactionId: uuid.v1().split("-").join(""),
+					from: "0000000000000000000000000000000000000000",
+					to: currentNode.nodeId,
+					value: 100,
+					fee: 0,
+					dateCreated: new Date().toISOString(),
+					data: "Mining reward",
+					transactionDataHash: burbcoin.hashBlockData({
+						from: "0000000000000000000000000000000000000000",
+						to: currentNode.nodeId,
+						value: 100,
+						fee: 0,
+						dateCreated: new Date().toISOString(),
+						data: "Mining reward",
+						senderPubKey:
+							"0000000000000000000000000000000000000000",
+					}),
+					senderPubKey: "0000000000000000000000000000000000000000",
+					senderSignature: [
+						"0000000000000000000000000000000000000000",
+						"0000000000000000000000000000000000000000",
+					],
+				},
+				json: true,
+			};
 
             return rp(requestOptions);
         })

@@ -1,12 +1,15 @@
 const sha256 = require('sha256');
 const uuid = require("uuid");
 
+// faucet private key= 2cc3417983838a6056069b652f8e6e09609baaa8fd5daa794a38061087102bb5
+// faucet public address= 1xK7eymyzVwdRkE3G7XUJFbzwMCpCMsFX
+
 // BLOCKCHAIN IMPLEMENTATION
 function Blockchain(nodeAddress) {
-    this.chain = [];
-    this.pendingTransactions = [];
-    this.difficulty = 5;
-    this.createNewBlock(
+	this.chain = [];
+	this.pendingTransactions = [];
+	this.difficulty = 5;
+	this.createNewBlock(
 		0,
 		"0",
 		this.hashBlock(
@@ -27,13 +30,16 @@ function Blockchain(nodeAddress) {
 			nodeAddress: "0000000000000000000000000000000000000000",
 		})
 	);
-    this.addTransactionToPending({
-		from: "0000000000000000000000000000000000000000",
-		to: "1234567890",
-		value: 1000000000000,
-		data: "Genesis block",
-		dateCreated: new Date().toISOString(),
+
+	//from, to, value, txFee, dateCreated, data, txHash, senderPubKey, senderSignature
+	this.addTransactionToPending({
 		transactionId: uuid.v1().split("-").join(""),
+		from: "0000000000000000000000000000000000000000",
+		to: "1xK7eymyzVwdRkE3G7XUJFbzwMCpCMsFX",
+		value: 1000000000000,
+        fee: 0,
+		dateCreated: new Date().toISOString(),
+		data: "Genesis block",
 		transactionDataHash: this.hashBlockData(
 			"0000000000000000000000000000000000000000",
 			"1234567890",
@@ -42,6 +48,8 @@ function Blockchain(nodeAddress) {
 			new Date().toISOString(),
 			"Genesis block"
 		),
+		senderPubKey: "0000000000000000000000000000000000000000",
+		senderSignature: ["00000000", "00000000"],
 	});
 }
 
@@ -132,25 +140,31 @@ Blockchain.prototype.chainIsValid = function(blockchain) {
     return validChain;
 };
 
-Blockchain.prototype.createNewTransaction = function(from, to, value, data) {
-    let txFee = 0;
+Blockchain.prototype.createNewTransaction = function(from, to, value, txFee, dateCreated, data, txHash, senderPubKey, senderSignature) {
+    // const publicKey = 
+    
+    if (from === "1xK7eymyzVwdRkE3G7XUJFbzwMCpCMsFX") {
+        txFee = 0;
+    }
 
-    if (from !== "1234567890") {
-		txFee = 10;
-	}
-    const dateCreated = new Date().toISOString();
-    const txHash = this.hashBlockData(from, to, value, txFee, dateCreated, data);
+    if (senderSignature.length == 0) {
+        throw new Error('No signature in this transaction.');
+    }
+
+
     const newTransaction = {
-        from: from,
-        to: to,
-        value: value,
-        fee: txFee,
-        dateCreated: dateCreated,
-        data: data,
-        transactionDataHash: txHash,
-        // senderPubKey: ,
-        // senderSignature: , 
-    };
+		transactionId: uuid.v1().split("-").join(""),
+		from: from,
+		to: to,
+		value: value,
+		fee: txFee,
+		dateCreated: dateCreated,
+		data: data,
+		transactionDataHash: txHash,
+		senderPubKey: senderPubKey,
+		senderSignature: senderSignature,
+	};
+
     return newTransaction;
 
 };
